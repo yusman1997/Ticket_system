@@ -1,0 +1,41 @@
+name: Reminder Tiket Overdue Discord
+
+on:
+  schedule:
+    # Jalan tiap 5 menit. GitHub Actions cron kadang telat beberapa
+    # menit saat traffic tinggi, tapi script punya toleransi jendela
+    # waktu tambahan (WINDOW_TOLERANCE_MINUTES) untuk mengatasi ini.
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}   # supaya bisa dijalankan manual dari tab Actions
+
+permissions:
+  contents: write   # perlu izin ini supaya workflow boleh commit balik state file
+
+jobs:
+  cek-reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Jalankan script reminder
+        env:
+          SDP_AUTHTOKEN: ${{ secrets.SDP_AUTHTOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python reminder_10menit_discord.py
+
+      - name: Simpan balik state anti-duplikat
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add sudah_direminder.json
+          git diff --staged --quiet || git commit -m "update state reminder [skip ci]"
+          git push
